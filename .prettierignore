@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+/data
+/data-e2e
+/models
+test-results
+playwright-report
+package-lock.json
+
+# Owned by scripts/format-problems.py, which enforces a stable field order
+# that Prettier would fight with.
+apps/server/src/data/problems.json

@@ -1,0 +1,40 @@
+# --- dependencies and build output ---
+node_modules/
+.next/
+dist/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- whisper models: big binaries, fetched with `npm run setup:model` ---
+/models/
+
+# --- your interview sessions: audio, transcripts, code, reports. Never commit. ---
+# Anchored to the repo root on purpose. An unanchored `data/` also matches
+# apps/server/src/data/, which is the problem bank and must stay tracked.
+/data/
+/data-e2e/
+
+# --- process logs written by scripts/start.sh ---
+/.logs/
+
+# --- Playwright ---
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# --- secrets ---
+# Every variant, not just `.env` and `.env*.local`. The README documents
+# ANTHROPIC_API_KEY as a way to run the analyser, so `.env.production` sitting
+# in a working tree is a realistic accident and the only genuinely dangerous
+# thing this repo can leak.
+.env*
+!.env.example
+
+# --- local machine noise ---
+.DS_Store
+*.log
+.eslintcache
+coverage/
+.claude/settings.local.json
