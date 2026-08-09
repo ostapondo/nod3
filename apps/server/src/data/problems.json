@@ -1,0 +1,247 @@
+[
+  {
+    "id": "two-sum-sorted",
+    "title": "Two Sum in a Sorted Array",
+    "difficulty": "easy",
+    "pattern": "two-pointers",
+    "tags": ["array", "two-pointers", "binary-search"],
+    "budgetMin": 20,
+    "statement": "Given an array of integers `nums` sorted in non-decreasing order and an integer `target`, return the indices of the two numbers that add up to `target`.\n\nReturn them as a list `[i, j]` with `i < j`, using 0-based indices. You may assume exactly one solution exists, and you may not use the same element twice.",
+    "ambiguities": [
+      "Are the indices 0-based or 1-based? (The statement says 0-based, but a candidate who checks is rewarded.)",
+      "Can the array contain duplicates or negative numbers?",
+      "Is the 'exactly one solution' guarantee something we should still defend against?",
+      "What is the size of the input — does an O(n log n) solution suffice, or is O(n) required?"
+    ],
+    "followUps": [
+      "The array is no longer sorted. What changes?",
+      "Find all unique pairs summing to target, not just one.",
+      "The array does not fit in memory. How would you approach it?",
+      "Extend to three numbers summing to target."
+    ],
+    "optimal": {"time": "O(n)", "space": "O(1)", "approach": "Two pointers from both ends, moving the left pointer inward when the sum is too small and the right pointer inward when it is too large."},
+    "pitfalls": [
+      "Reaching for a hash map out of habit — that is O(n) space when the sortedness gives you O(1).",
+      "Off-by-one when the two pointers meet.",
+      "Not stating that sortedness is the property being exploited."
+    ],
+    "entry": "two_sum_sorted",
+    "starter": {
+      "python": "def two_sum_sorted(nums, target):\n    # nums is sorted non-decreasing. Return [i, j] with i < j.\n    pass\n",
+      "javascript": "function two_sum_sorted(nums, target) {\n  // nums is sorted non-decreasing. Return [i, j] with i < j.\n}\n"
+    },
+    "tests": [
+      {"args": [[2, 7, 11, 15], 9], "expected": [0, 1]},
+      {"args": [[2, 3, 4], 6], "expected": [0, 2]},
+      {"args": [[-1, 0], -1], "expected": [0, 1]},
+      {"args": [[1, 2, 3, 4, 4, 9, 56, 90], 8], "expected": [3, 4], "hidden": true, "note": "duplicate values adjacent to the answer"},
+      {"args": [[-10, -3, 0, 5, 9, 12], 6], "expected": [1, 4], "hidden": true, "note": "negative numbers"},
+      {"args": [[0, 0, 3, 4], 0], "expected": [0, 1], "hidden": true, "note": "zero target with duplicate zeros"}
+    ],
+    "signature": {"params": ["int[]", "int"], "returns": "int[]"}
+  },
+  {
+    "id": "valid-parentheses",
+    "title": "Valid Parentheses",
+    "difficulty": "easy",
+    "pattern": "stack",
+    "tags": ["string", "stack"],
+    "budgetMin": 20,
+    "statement": "Given a string `s` containing only the characters `(`, `)`, `{`, `}`, `[` and `]`, decide whether every bracket is closed by one of the same type, in the right order.\n\nReturn `True` if the string is valid, `False` otherwise.",
+    "ambiguities": [
+      "Is the empty string valid? (It is here, but asking is the point.)",
+      "Can the string contain characters other than brackets?",
+      "How long can the input be — does that rule out recursion?",
+      "Should we report where the mismatch is, or only whether one exists?"
+    ],
+    "followUps": [
+      "Return the index of the first character that breaks the string.",
+      "The bracket pairs are supplied at runtime instead of being fixed. What changes?",
+      "Return the length of the longest valid bracket substring."
+    ],
+    "optimal": {"time": "O(n)", "space": "O(n)", "approach": "Push every opening bracket onto a stack; on a closing bracket, pop and check the pair matches. Valid exactly when nothing mismatches and the stack ends empty."},
+    "pitfalls": [
+      "Counting brackets instead of stacking them — that accepts \"([)]\", which is invalid.",
+      "Forgetting the leftover opening brackets at the end, so \"(\" reads as valid.",
+      "Popping an empty stack when a closing bracket arrives first."
+    ],
+    "entry": "is_valid",
+    "signature": {"params": ["string"], "returns": "bool"},
+    "starter": {
+      "python": "def is_valid(s):\n    pass\n",
+      "javascript": "function is_valid(s) {\n}\n"
+    },
+    "tests": [
+      {"args": ["()"], "expected": true},
+      {"args": ["()[]{}"], "expected": true},
+      {"args": ["(]"], "expected": false},
+      {"args": [""], "expected": true, "note": "the empty string is valid"},
+      {"args": ["([)]"], "expected": false, "hidden": true, "note": "counting brackets instead of stacking accepts this"},
+      {"args": ["("], "expected": false, "hidden": true, "note": "leftover opening bracket"},
+      {"args": ["]"], "expected": false, "hidden": true, "note": "closing bracket with nothing open"},
+      {"args": ["{[]}"], "expected": true, "hidden": true, "note": "properly nested"}
+    ]
+  },
+  {
+    "id": "max-profit",
+    "title": "Best Time to Buy and Sell Stock",
+    "difficulty": "easy",
+    "pattern": "running-minimum",
+    "tags": ["array", "greedy", "single-pass"],
+    "budgetMin": 20,
+    "statement": "`prices[i]` is the price of a stock on day `i`. Choose one day to buy and a later day to sell.\n\nReturn the maximum profit you can make. If no profitable trade exists, return `0`.",
+    "ambiguities": [
+      "Must we trade at all, or is doing nothing allowed? (It is — that is what the 0 means.)",
+      "Can we buy and sell on the same day?",
+      "Can prices be zero or negative?",
+      "What should an empty or single-day array return?"
+    ],
+    "followUps": [
+      "Unlimited transactions, one at a time. What changes?",
+      "At most two transactions.",
+      "Return the two days, not just the profit."
+    ],
+    "optimal": {"time": "O(n)", "space": "O(1)", "approach": "One pass keeping the lowest price seen so far and the best profit achievable by selling today."},
+    "pitfalls": [
+      "The nested double loop — correct, but O(n^2), and the whole point is the single pass.",
+      "Returning a negative number on a falling market instead of 0.",
+      "Selling before buying by tracking the global minimum and maximum independently."
+    ],
+    "entry": "max_profit",
+    "signature": {"params": ["int[]"], "returns": "int"},
+    "starter": {
+      "python": "def max_profit(prices):\n    pass\n",
+      "javascript": "function max_profit(prices) {\n}\n"
+    },
+    "tests": [
+      {"args": [[7, 1, 5, 3, 6, 4]], "expected": 5},
+      {"args": [[7, 6, 4, 3, 1]], "expected": 0, "note": "a falling market earns nothing, not a loss"},
+      {"args": [[]], "expected": 0, "note": "no days at all"},
+      {"args": [[1]], "expected": 0, "hidden": true, "note": "one day: you cannot sell later"},
+      {"args": [[2, 4, 1]], "expected": 2, "hidden": true, "note": "the global minimum comes after the best sell day"},
+      {"args": [[3, 3, 3]], "expected": 0, "hidden": true, "note": "flat market"},
+      {"args": [[2, 1, 2, 1, 0, 1, 2]], "expected": 2, "hidden": true, "note": "several local minima"}
+    ]
+  },
+  {
+    "id": "num-islands",
+    "title": "Number of Islands",
+    "difficulty": "medium",
+    "pattern": "grid-traversal",
+    "tags": ["graph", "bfs", "dfs", "matrix"],
+    "budgetMin": 30,
+    "statement": "Given a 2D grid of `1`s (land) and `0`s (water), return the number of islands.\n\nAn island is a group of `1`s connected horizontally or vertically. Assume the grid is surrounded by water on all sides.",
+    "ambiguities": [
+      "Is diagonal adjacency considered connected?",
+      "May we mutate the input grid to mark visited cells, or must it be preserved?",
+      "Can the grid be empty or ragged?",
+      "How large can the grid get — does recursion risk a stack overflow?"
+    ],
+    "followUps": [
+      "Return the size of the largest island.",
+      "The grid does not fit in memory — how would you process it in chunks?",
+      "Cells are added one at a time; maintain the island count online (union-find)."
+    ],
+    "optimal": {"time": "O(rows * cols)", "space": "O(rows * cols) worst case for the traversal frontier", "approach": "Scan every cell; on each unvisited land cell run a flood fill and increment the counter."},
+    "pitfalls": [
+      "Not marking cells visited at enqueue time, so the same cell is queued repeatedly.",
+      "Index out of bounds on the grid edges.",
+      "Deep recursion on a large all-land grid blowing the stack."
+    ],
+    "entry": "num_islands",
+    "starter": {
+      "python": "def num_islands(grid):\n    # grid is a list of lists of ints (1 = land, 0 = water).\n    pass\n",
+      "javascript": "function num_islands(grid) {\n  // grid is an array of arrays of numbers (1 = land, 0 = water).\n}\n"
+    },
+    "tests": [
+      {"args": [[[1, 1, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]], "expected": 3},
+      {"args": [[[1, 1, 1], [1, 1, 1], [1, 1, 1]]], "expected": 1},
+      {"args": [[]], "expected": 0, "note": "empty grid"},
+      {"args": [[[0, 0], [0, 0]]], "expected": 0, "hidden": true, "note": "all water"},
+      {"args": [[[1, 0, 1, 0, 1]]], "expected": 3, "hidden": true, "note": "single row"},
+      {"args": [[[1], [0], [1]]], "expected": 2, "hidden": true, "note": "single column"},
+      {"args": [[[1, 0], [0, 1]]], "expected": 2, "hidden": true, "note": "diagonal cells are NOT connected"}
+    ],
+    "signature": {"params": ["int[][]"], "returns": "int"}
+  },
+  {
+    "id": "word-break",
+    "title": "Word Break",
+    "difficulty": "medium",
+    "pattern": "dynamic-programming",
+    "tags": ["dp", "string", "memoisation"],
+    "budgetMin": 35,
+    "statement": "Given a string `s` and a list of words `word_dict`, return `True` if `s` can be segmented into a space-separated sequence of one or more dictionary words.\n\nWords from the dictionary may be reused any number of times.",
+    "ambiguities": [
+      "May a dictionary word be used more than once? (Yes here — worth confirming.)",
+      "Can the dictionary or the string be empty?",
+      "Are we case sensitive?",
+      "Do we need one valid segmentation, or just whether one exists?"
+    ],
+    "followUps": [
+      "Return one valid segmentation.",
+      "Return every possible segmentation — what does that do to the complexity?",
+      "The dictionary has millions of words. What data structure now?"
+    ],
+    "optimal": {"time": "O(n^2 * m) where m is the max word length", "space": "O(n)", "approach": "DP over prefixes: dp[i] is true when some j < i has dp[j] true and s[j:i] is in the dictionary."},
+    "pitfalls": [
+      "Plain recursion without memoisation, which is exponential on inputs like 'aaaa...ab'.",
+      "Greedily taking the longest matching word, which is simply wrong.",
+      "Scanning the dictionary as a list instead of a set, adding a hidden linear factor."
+    ],
+    "entry": "word_break",
+    "starter": {
+      "python": "def word_break(s, word_dict):\n    pass\n",
+      "javascript": "function word_break(s, word_dict) {\n}\n"
+    },
+    "tests": [
+      {"args": ["leetcode", ["leet", "code"]], "expected": true},
+      {"args": ["applepenapple", ["apple", "pen"]], "expected": true},
+      {"args": ["catsandog", ["cats", "dog", "sand", "and", "cat"]], "expected": false},
+      {"args": ["", ["a"]], "expected": true, "hidden": true, "note": "empty string is trivially segmentable"},
+      {"args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaab", ["a", "aa", "aaa", "aaaa"]], "expected": false, "hidden": true, "note": "kills unmemoised recursion"},
+      {"args": ["cars", ["car", "ca", "rs"]], "expected": true, "hidden": true, "note": "greedy longest-match fails here"}
+    ],
+    "signature": {"params": ["string", "string[]"], "returns": "bool"}
+  },
+  {
+    "id": "min-window-substring",
+    "title": "Minimum Window Substring",
+    "difficulty": "hard",
+    "pattern": "sliding-window",
+    "tags": ["string", "sliding-window", "hash-map"],
+    "budgetMin": 45,
+    "statement": "Given strings `s` and `t`, return the shortest substring of `s` that contains every character of `t`, including duplicates.\n\nIf no such window exists, return the empty string `\"\"`. Assume the answer is unique when one exists.",
+    "ambiguities": [
+      "Does the window need the characters in order? (No — worth confirming out loud.)",
+      "How are duplicate characters in `t` counted?",
+      "What is the character set?",
+      "What should be returned when `t` is longer than `s`?"
+    ],
+    "followUps": [
+      "Return the start index instead of the substring.",
+      "What if `t` can contain characters absent from `s` entirely?",
+      "Find the longest window containing at most K distinct characters."
+    ],
+    "optimal": {"time": "O(|s| + |t|)", "space": "O(|t|)", "approach": "Expand the right edge until the window is valid, then contract the left edge while it stays valid, tracking the best window. A `have`/`need` counter avoids rescanning the map."},
+    "pitfalls": [
+      "Comparing the whole frequency map on every step, which makes it O(n * alphabet).",
+      "Mishandling duplicates in `t` — the window needs two 'a's, not one.",
+      "Forgetting to record the best window before contracting past it."
+    ],
+    "entry": "min_window",
+    "starter": {
+      "python": "def min_window(s, t):\n    pass\n",
+      "javascript": "function min_window(s, t) {\n}\n"
+    },
+    "tests": [
+      {"args": ["ADOBECODEBANC", "ABC"], "expected": "BANC"},
+      {"args": ["a", "a"], "expected": "a"},
+      {"args": ["a", "aa"], "expected": "", "note": "t needs two 'a's, s has one"},
+      {"args": ["", "a"], "expected": "", "hidden": true, "note": "empty source"},
+      {"args": ["ab", "b"], "expected": "b", "hidden": true, "note": "answer at the end"},
+      {"args": ["aaflslflsldkalskaaa", "aaa"], "expected": "aaa", "hidden": true, "note": "duplicates in t must all be covered"}
+    ],
+    "signature": {"params": ["string", "string"], "returns": "string"}
+  }
+]
