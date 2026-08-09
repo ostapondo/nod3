@@ -1,0 +1,82 @@
+{
+  "name": "nod3",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-first algorithm interview trainer. Think out loud, then see your reasoning lined up against what you actually typed.",
+  "license": "MIT",
+  "author": "ostapondo (https://github.com/ostapondo)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ostapondo/nod3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ostapondo/nod3/issues"
+  },
+  "homepage": "https://github.com/ostapondo/nod3#readme",
+  "keywords": [
+    "interview-preparation",
+    "algorithms",
+    "leetcode",
+    "mock-interview",
+    "whisper",
+    "local-first",
+    "speech-to-text"
+  ],
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm run dev -w @nod3/server",
+    "dev:web": "npm run dev -w @nod3/web",
+    "build": "npm run build -w @nod3/web",
+    "start": "concurrently -n server,web -c cyan,magenta \"npm:start:server\" \"npm:start:web\"",
+    "start:server": "npm run start -w @nod3/server",
+    "start:web": "npm run start -w @nod3/web",
+    "test": "npm run test:unit && npm run test:problems",
+    "test:unit": "tsx --test \"apps/server/src/**/*.test.ts\"",
+    "test:problems": "python3 scripts/verify-problems.py && python3 scripts/format-problems.py --check",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -p apps/server --noEmit && tsc -p apps/web --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "doctor": "node scripts/doctor.mjs",
+    "setup:model": "node scripts/fetch-model.mjs",
+    "version:sync": "node scripts/sync-version.mjs",
+    "prepare": "husky",
+    "format:problems": "python3 scripts/format-problems.py"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,yml,yaml}": [
+      "prettier --write"
+    ],
+    "apps/server/src/data/problems.json": [
+      "python3 scripts/verify-problems.py",
+      "python3 scripts/format-problems.py"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@eslint/js": "^9.18.0",
+    "@playwright/test": "^1.50.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.1",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
