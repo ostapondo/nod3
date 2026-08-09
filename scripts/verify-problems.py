@@ -3,10 +3,13 @@ Runs each stored test case and reports any mismatch, so a wrong `expected`
 can never ship.
 """
 import json
+import pathlib
 import sys
 from collections import Counter, deque
 
-P = "/Users/ostapbelei/Desktop/alg/apps/server/src/data/problems.json"
+# Resolved from this file, not the working directory: CI, hooks and a plain
+# `python3 scripts/verify-problems.py` all invoke it from different places.
+P = pathlib.Path(__file__).resolve().parent.parent / "apps/server/src/data/problems.json"
 
 
 def two_sum_sorted(nums, target):

@@ -77,6 +77,9 @@ The authoritative version lives in `version.env`; `npm run version:sync` propaga
   `module.stripTypeScriptTypes is not a function` presented to the candidate as a compile
   error in their own code. Availability is now probed like every other language, and the
   harness names the real problem if it is reached anyway.
+- `verify-problems.py` opened the problem bank through an absolute path from the machine
+  it was written on, so the check that guarantees no wrong `expected` ever ships could
+  only run there. It resolves the path from its own location now.
 - The unit test glob was quoted, so it reached `node --test` as a literal path on any Node
   that does not expand globs itself, and CI reported "Could not find" instead of running
   38 tests. `find` locates them now.
