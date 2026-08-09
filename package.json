@@ -34,7 +34,7 @@
     "start:server": "npm run start -w @nod3/server",
     "start:web": "npm run start -w @nod3/web",
     "test": "npm run test:unit && npm run test:problems",
-    "test:unit": "tsx --test \"apps/server/src/**/*.test.ts\"",
+    "test:unit": "tsx --test $(find apps/server/src -name '*.test.ts')",
     "test:problems": "python3 scripts/verify-problems.py && python3 scripts/format-problems.py --check",
     "test:e2e": "playwright test",
     "typecheck": "tsc -p apps/server --noEmit && tsc -p apps/web --noEmit",
