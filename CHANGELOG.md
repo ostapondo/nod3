@@ -8,7 +8,33 @@ The authoritative version lives in `version.env`; `npm run version:sync` propaga
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-10
+
+First working version.
+
 ### Added
+
+- **Interview room** — problem statement, Monaco editor with autocomplete disabled,
+  microphone recording, live level meter, session clock against a per-problem budget,
+  and a passive nudge after 20 seconds of silence.
+- **Local speech capture** — audio is recorded in the browser and transcribed on your
+  machine with whisper.cpp. Nothing is uploaded.
+- **Two-track timeline** — speech and keystrokes rendered on a single clock, with
+  silent-coding stretches banded in, test runs marked, and findings pinned to the
+  moment they refer to. Scrubbing replays what you were saying at that instant.
+- **Deterministic metrics** — talk ratio, planning window, silent coding, longest
+  silence, edit churn, paste count and test-run history, all computed in code rather
+  than inferred by a model.
+- **Interviewer debrief** — a Google-style algorithms rubric across seven dimensions,
+  a hire/no-hire verdict, and timestamped findings. Runs through the `claude` CLI by
+  default (no API key), with Anthropic API and Ollama as alternatives.
+- **Problem bank** — ten pattern-diverse problems with hidden test cases, documented
+  ambiguities, known pitfalls and interviewer follow-ups. Every expected answer is
+  verified in CI against a reference solution.
+- **Local test runner** for Python and JavaScript submissions, tolerant of both
+  `snake_case` and `camelCase` entry points.
+- `npm run doctor` — checks ffmpeg, whisper.cpp, the model, Python and the analysis
+  engine, and prints the exact fix for whatever is missing.
 
 - **Six languages** — Python, JavaScript, TypeScript, Java, C++ and Go, the set Google
   allows. TypeScript rides the JavaScript harness: Node erases the annotations, so there
@@ -98,34 +124,6 @@ The authoritative version lives in `version.env`; `npm run version:sync` propaga
   `apps/server/src/data/`, so `problems.json` — the content the whole app runs on — was
   never going to be committed, and CI's reference-solution check would have failed on a
   missing file. The rule is now anchored to the repo root.
-
-## [0.1.0] - 2026-08-09
-
-First working version.
-
-### Added
-
-- **Interview room** — problem statement, Monaco editor with autocomplete disabled,
-  microphone recording, live level meter, session clock against a per-problem budget,
-  and a passive nudge after 20 seconds of silence.
-- **Local speech capture** — audio is recorded in the browser and transcribed on your
-  machine with whisper.cpp. Nothing is uploaded.
-- **Two-track timeline** — speech and keystrokes rendered on a single clock, with
-  silent-coding stretches banded in, test runs marked, and findings pinned to the
-  moment they refer to. Scrubbing replays what you were saying at that instant.
-- **Deterministic metrics** — talk ratio, planning window, silent coding, longest
-  silence, edit churn, paste count and test-run history, all computed in code rather
-  than inferred by a model.
-- **Interviewer debrief** — a Google-style algorithms rubric across seven dimensions,
-  a hire/no-hire verdict, and timestamped findings. Runs through the `claude` CLI by
-  default (no API key), with Anthropic API and Ollama as alternatives.
-- **Problem bank** — ten pattern-diverse problems with hidden test cases, documented
-  ambiguities, known pitfalls and interviewer follow-ups. Every expected answer is
-  verified in CI against a reference solution.
-- **Local test runner** for Python and JavaScript submissions, tolerant of both
-  `snake_case` and `camelCase` entry points.
-- `npm run doctor` — checks ffmpeg, whisper.cpp, the model, Python and the analysis
-  engine, and prints the exact fix for whatever is missing.
 
 ### Notes
 
