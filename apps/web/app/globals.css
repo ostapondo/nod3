@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+
+/*
+ * Committed dark. This is a tool you sit in front of for 45 minutes with a
+ * code editor open; a light mode would fight the editor and the room you
+ * practise in.
+ */
+@theme {
+  --color-canvas: #08080a;
+  --color-surface: #0f0f13;
+  --color-raised: #16161b;
+  --color-line: #23232b;
+  --color-ink: #eeeef2;
+  --color-muted: #85858f;
+  --color-faint: #56565f;
+
+  /* One accent for action. */
+  --color-accent: #cdfa50;
+  --color-accent-dim: #8fae32;
+
+  /* The two tracks are colour-coded everywhere: what you SAID vs what you WROTE. */
+  --color-speech: #5ec8ff;
+  --color-code: #ffb347;
+
+  --color-danger: #ff5f56;
+  --color-warn: #ffbd2e;
+  --color-good: #6ee787;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* A faint grid, so large empty surfaces read as a workspace instead of a void. */
+.grid-field {
+  background-image:
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-position: -1px -1px;
+  opacity: 0.35;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recording pulse — the one thing on screen allowed to move. */
+@keyframes rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+.rec-dot {
+  animation: rec-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+.sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 25%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-accent) 45%, transparent),
+    transparent
+  );
+  animation: sweep 1.8s ease-in-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+  border: 3px solid var(--color-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
