@@ -1,9 +1,14 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
+import nodeModule from 'node:module'
 import path from 'node:path'
 
 const run = promisify(execFile)
+
+/** The TypeScript harness erases annotations with this; it exists from Node 22.13. */
+export const TYPE_STRIPPING =
+  typeof (nodeModule as { stripTypeScriptTypes?: unknown }).stripTypeScriptTypes === 'function'
 
 /**
  * Resolves the compilers each language needs.
@@ -85,11 +90,15 @@ export async function detectToolchains(): Promise<Record<string, Toolchain>> {
     },
     typescript: {
       // Same Node: it erases the annotations rather than compiling them, so
-      // there is nothing extra to install.
+      // there is nothing extra to install — but the API that does the erasing
+      // only landed in Node 22.13. On anything older every TypeScript session
+      // would die inside the harness, so report it as unavailable instead.
       bins: { node: process.execPath },
-      available: true,
-      version: `Node ${process.versions.node} (type stripping)`,
-      install: '',
+      available: TYPE_STRIPPING,
+      version: TYPE_STRIPPING
+        ? `Node ${process.versions.node} (type stripping)`
+        : `Node ${process.versions.node} cannot strip types`,
+      install: TYPE_STRIPPING ? '' : 'upgrade to Node 22.13 or newer',
     },
     java: {
       bins: javac && java ? { javac: javac.bin, java: java.bin } : {},

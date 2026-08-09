@@ -46,9 +46,11 @@ async function which(bin) {
 console.log('\nnod3 doctor\n')
 
 // --- node ---
-const [major] = process.versions.node.split('.').map(Number)
-if (major >= 20) ok('node', `v${process.versions.node}`)
-else bad(`node v${process.versions.node} is too old`, 'install Node 20 or newer')
+// 22.13 is the floor because that is where `module.stripTypeScriptTypes` — the
+// whole of the TypeScript harness — arrived.
+const [major, minor] = process.versions.node.split('.').map(Number)
+if (major > 22 || (major === 22 && minor >= 13)) ok('node', `v${process.versions.node}`)
+else bad(`node v${process.versions.node} is too old`, 'install Node 22.13 or newer')
 
 // --- ffmpeg: audio conversion and silence detection ---
 const ffmpeg = await which('ffmpeg')

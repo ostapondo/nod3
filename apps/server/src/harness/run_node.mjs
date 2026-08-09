@@ -13,6 +13,17 @@ if (solutionPath.endsWith('.ts')) {
   // Node can erase type annotations without a compiler. It refuses `enum` and
   // `namespace`, which need real code generation — neither belongs in an
   // interview answer, so say so plainly rather than dumping a Node stack.
+  if (typeof module.stripTypeScriptTypes !== 'function') {
+    console.log(
+      JSON.stringify({
+        error: 'compile',
+        message: `This Node (v${process.versions.node}) cannot erase TypeScript annotations; that arrived in Node 22.13. Upgrade Node, or sit this problem in JavaScript.`,
+        results: [],
+      }),
+    )
+    process.exit(0)
+  }
+
   try {
     source = module.stripTypeScriptTypes(source, { mode: 'strip' })
   } catch (err) {

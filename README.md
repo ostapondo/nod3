@@ -38,7 +38,9 @@ That middle line is the product.
 
 ## What a session looks like
 
-1. Pick a problem. The clock starts when you allow the microphone.
+1. Pick a problem. The clock starts when you begin. The microphone is what the speech half
+   of the report is made of, but you can also begin without audio — on a machine with no
+   mic, or somewhere you cannot talk — and still get the code, the timings and the tests.
 2. Talk through it exactly as you would with an interviewer. The editor has autocomplete
    turned off — an interviewer's shared doc does not have it either.
 3. Run the tests when you have something worth checking. Some cases are hidden.
@@ -98,7 +100,8 @@ func mergeIntervals(intervals [][]int) [][]int {
 
 ## Install
 
-Requires macOS or Linux, Node 20+, and about 500 MB for the speech model.
+Requires macOS or Linux, Node 22.13+ — that is where the type stripping the TypeScript
+harness runs on landed — and about 500 MB for the speech model.
 
 ```bash
 git clone https://github.com/ostapondo/nod3.git

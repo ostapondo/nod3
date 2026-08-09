@@ -58,8 +58,28 @@ The authoritative version lives in `version.env`; `npm run version:sync` propaga
   chosen so that between them they still exercise every type in the signature
   vocabulary, keeping the Java, C++ and Go code generators covered by tests.
 
+- **The Node floor is now 22.13**, up from 20. The TypeScript harness runs on
+  `module.stripTypeScriptTypes`, which arrived in 22.13 — the README had been promising
+  a version the app could not actually deliver six languages on. CI moved with it; Node
+  20 is out of support anyway.
+
 ### Fixed
 
+- **A microphone was required to sit a problem at all.** Denying the permission — or
+  having no mic, or simply being somewhere you cannot talk out loud — left the Begin
+  button doing nothing, under a message that claimed the session worked without audio.
+  The server had always degraded to a code-only report; only the browser refused. The
+  briefing now offers "Begin without audio" up front, a failed permission turns into that
+  offer instead of a dead end, and the room says "audio off" rather than showing a
+  recording indicator over a dead meter.
+- TypeScript was reported as always available, on the reasoning that the Node running the
+  server is the whole toolchain. On a Node without type stripping that turned into
+  `module.stripTypeScriptTypes is not a function` presented to the candidate as a compile
+  error in their own code. Availability is now probed like every other language, and the
+  harness names the real problem if it is reached anyway.
+- The unit test glob was quoted, so it reached `node --test` as a literal path on any Node
+  that does not expand globs itself, and CI reported "Could not find" instead of running
+  38 tests. `find` locates them now.
 - Selecting an interview language gave no feedback and, if the write failed, silently
   reappeared later asking again. The card now lights up immediately, the choice is only
   treated as made once the server confirms it, and a failed write says so.
