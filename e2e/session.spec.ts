@@ -152,6 +152,24 @@ test.describe('interview room', () => {
     await expect(page.getByText(/want \[0,1\]/).first()).toBeVisible()
   })
 
+  test('a session can be sat without a microphone', async ({ page, request }) => {
+    const res = await request.post('/api/sessions', {
+      data: { problemId: 'two-sum-sorted', language: 'python' },
+    })
+    const { id } = await res.json()
+    await page.goto(`/session/${id}`)
+    await page.getByRole('button', { name: 'Begin without audio' }).click()
+
+    // The room opens and says plainly that nothing is being recorded.
+    await expect(page.getByText('audio off')).toBeVisible()
+    await expect(page.getByText('rec', { exact: true })).toHaveCount(0)
+
+    // Everything that does not depend on speech still works.
+    await setEditorValue(page, 'def two_sum_sorted(nums, target):\n    return [0, 0]\n')
+    await page.getByRole('button', { name: /Run tests/ }).click()
+    await expect(page.getByText('failing cases below')).toBeVisible({ timeout: 20_000 })
+  })
+
   test('hidden cases stay hidden during the session', async ({ page }) => {
     await openSession(page, 'two-sum-sorted')
     await setEditorValue(page, 'def two_sum_sorted(nums, target):\n    return [0, 0]\n')

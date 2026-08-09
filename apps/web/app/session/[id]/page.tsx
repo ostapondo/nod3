@@ -150,12 +150,19 @@ export default function SessionRoom() {
 
   // ------------------------------------------------------------- controls ---
 
-  async function begin() {
-    const ok = await recorder.start()
-    if (!ok) return
+  function enterRoom() {
     startedAt.current = Date.now()
     push({ t: 0, kind: 'phase', phase: 'start' })
     setPhase('live')
+  }
+
+  async function begin() {
+    // A refused or absent microphone must not trap you on the briefing screen.
+    // The pipeline already degrades to a code-only report, so the failure turns
+    // into an offer to start without audio rather than a dead button.
+    const ok = await recorder.start()
+    if (!ok) return
+    enterRoom()
   }
 
   const onCodeChange = useCallback(
@@ -223,12 +230,22 @@ export default function SessionRoom() {
   }
 
   if (phase === 'briefing') {
-    return <Briefing problem={problem} language={language} error={recorder.error} onBegin={begin} />
+    return (
+      <Briefing
+        problem={problem}
+        language={language}
+        error={recorder.error}
+        onBegin={begin}
+        onBeginSilent={enterRoom}
+      />
+    )
   }
 
   const budgetMs = problem.budgetMin * 60_000
   const overBudget = elapsed > budgetMs
-  const nudge = phase === 'live' && recorder.silentForMs > NUDGE_AT_MS
+  // Without a mic there is no silence to measure, so the nudge would fire on a
+  // level meter that never moves.
+  const nudge = phase === 'live' && recorder.ready && recorder.silentForMs > NUDGE_AT_MS
 
   return (
     <div className="flex h-screen flex-col">
@@ -239,6 +256,7 @@ export default function SessionRoom() {
         elapsed={elapsed}
         overBudget={overBudget}
         phase={phase}
+        recording={recorder.ready}
         level={recorder.level}
         silentForMs={recorder.silentForMs}
         running={running}
@@ -382,11 +400,13 @@ function Briefing({
   language,
   error,
   onBegin,
+  onBeginSilent,
 }: {
   problem: ProblemDetail
   language: string
   error: string | null
   onBegin: () => void
+  onBeginSilent: () => void
 }) {
   const rules = [
     [
@@ -420,7 +440,8 @@ function Briefing({
         <h1 className="text-2xl font-medium tracking-tight">{problem.title}</h1>
         <p className="mt-2 text-sm text-muted">
           {problem.budgetMin} minutes in {LANGUAGE_LABEL[language] ?? language}. The clock starts
-          when you allow the microphone.
+          when you begin. The microphone is what the speech half of the report is made of, but it is
+          not required to sit the problem.
         </p>
 
         <ul className="my-8 space-y-4 border-y border-line py-7">
@@ -437,14 +458,26 @@ function Briefing({
 
         {error && (
           <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
-            {error} — the session still works without audio, but the speech half of the report will
-            be empty.
+            {error} — start without audio below, or fix the microphone and try again. Your code,
+            timings and test results are measured either way.
           </div>
         )}
 
         <Button variant="primary" onClick={onBegin} className="w-full py-2.5">
-          Allow microphone and begin
+          {error ? 'Try the microphone again' : 'Allow microphone and begin'}
         </Button>
+
+        <button
+          type="button"
+          onClick={onBeginSilent}
+          className="mt-3 w-full text-center text-[12.5px] text-faint underline-offset-4 hover:text-muted hover:underline"
+        >
+          Begin without audio
+        </button>
+        <p className="mt-2 text-center text-[11.5px] leading-relaxed text-faint">
+          No mic, or not somewhere you can talk. You still get the code, the timings and the test
+          results — everything that reads your speech stays empty.
+        </p>
       </div>
     </div>
   )
@@ -456,6 +489,7 @@ function TopBar({
   elapsed,
   overBudget,
   phase,
+  recording,
   level,
   silentForMs,
   running,
@@ -467,6 +501,7 @@ function TopBar({
   elapsed: number
   overBudget: boolean
   phase: 'briefing' | 'live' | 'processing'
+  recording: boolean
   level: number
   silentForMs: number
   running: boolean
@@ -483,13 +518,21 @@ function TopBar({
       <div className="h-4 w-px bg-line" />
 
       {phase === 'live' ? (
-        <>
-          <div className="flex items-center gap-2">
-            <span className="rec-dot inline-block size-2 rounded-full bg-danger" />
-            <span className="font-mono text-[11px] uppercase tracking-wider text-danger">rec</span>
-          </div>
-          <MicMeter level={level} silentForMs={silentForMs} />
-        </>
+        recording ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="rec-dot inline-block size-2 rounded-full bg-danger" />
+              <span className="font-mono text-[11px] uppercase tracking-wider text-danger">
+                rec
+              </span>
+            </div>
+            <MicMeter level={level} silentForMs={silentForMs} />
+          </>
+        ) : (
+          <span className="font-mono text-[11px] uppercase tracking-wider text-faint">
+            audio off
+          </span>
+        )
       ) : (
         <span className="text-[13px] text-muted">Ready when you are</span>
       )}
