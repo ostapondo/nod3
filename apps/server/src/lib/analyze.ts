@@ -1,17 +1,7 @@
-import { execFile } from 'node:child_process'
-import {
-  ANALYSIS_ENGINE,
-  ANALYSIS_MODEL,
-  OLLAMA_MODEL,
-  OLLAMA_URL,
-  type AnalysisEngine,
-} from '../config.js'
+import { ANALYSIS_ENGINE, type AnalysisEngine } from '../config.js'
+import { complete, engineModel } from './engines.js'
 import { RUBRIC_DIMENSIONS } from './prompt.js'
 import type { Analysis, AnalysisFinding, RubricScore } from './types.js'
-
-/** Tools are pointless here — the whole record is already in the prompt — and
- *  letting the model wander the filesystem makes runs slow and non-deterministic. */
-const NO_TOOLS = 'Bash Edit Write Read Glob Grep WebSearch WebFetch Task NotebookEdit TodoWrite'
 
 function extractJson(text: string): unknown {
   const trimmed = text.trim()
@@ -29,65 +19,6 @@ function extractJson(text: string): unknown {
   }
 }
 
-async function viaClaudeCode(prompt: string): Promise<string> {
-  const stdout = await new Promise<string>((resolve, reject) => {
-    const child = execFile(
-      'claude',
-      ['-p', '--output-format', 'json', '--model', ANALYSIS_MODEL, '--disallowedTools', NO_TOOLS],
-      { maxBuffer: 32 * 1024 * 1024, timeout: 10 * 60_000 },
-      (err, out, stderr) => {
-        if (err) return reject(new Error(`claude CLI failed: ${stderr || err.message}`))
-        resolve(out)
-      },
-    )
-    child.stdin?.end(prompt)
-  })
-
-  const envelope = JSON.parse(stdout) as { is_error?: boolean; result?: string }
-  if (envelope.is_error)
-    throw new Error(`claude returned an error: ${envelope.result ?? 'unknown'}`)
-  if (!envelope.result) throw new Error('claude returned an empty result')
-  return envelope.result
-}
-
-async function viaAnthropic(prompt: string): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('ANALYSIS_ENGINE=anthropic but ANTHROPIC_API_KEY is not set')
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: ANALYSIS_MODEL === 'sonnet' ? 'claude-sonnet-5' : ANALYSIS_MODEL,
-      max_tokens: 8000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 500)}`)
-  const body = (await res.json()) as { content?: Array<{ type: string; text?: string }> }
-  return (
-    body.content
-      ?.filter((c) => c.type === 'text')
-      .map((c) => c.text)
-      .join('') ?? ''
-  )
-}
-
-async function viaOllama(prompt: string): Promise<string> {
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false, format: 'json' }),
-  })
-  if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 500)}`)
-  const body = (await res.json()) as { response?: string }
-  return body.response ?? ''
-}
-
 const clamp = (n: unknown, lo: number, hi: number, fallback: number) =>
   typeof n === 'number' && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback
 
@@ -99,6 +30,23 @@ const VERDICTS = new Set<Analysis['verdict']>([
   'no-hire',
 ])
 const SEVERITIES = new Set<AnalysisFinding['severity']>(['critical', 'major', 'minor', 'positive'])
+
+/**
+ * Valid JSON is not the same as a usable debrief. `coerce` fills every hole it
+ * finds, which is right for a report that is mostly there and wrong for one the
+ * model never really wrote — that would render as a confident "lean no hire"
+ * with an empty scorecard. Anything that fails this is worth another attempt.
+ */
+function isUsable(raw: unknown): boolean {
+  if (typeof raw !== 'object' || raw === null) return false
+  const o = raw as Record<string, unknown>
+  const scored = Array.isArray(o.rubric)
+    ? o.rubric.filter((e) =>
+        RUBRIC_DIMENSIONS.includes(String((e as Record<string, unknown>)?.dimension ?? '')),
+      ).length
+    : 0
+  return VERDICTS.has(o.verdict as Analysis['verdict']) && scored >= RUBRIC_DIMENSIONS.length / 2
+}
 
 /** Never trust the model's shape — the UI renders this directly. */
 function coerce(raw: unknown, engine: AnalysisEngine, model: string): Analysis {
@@ -155,13 +103,21 @@ function coerce(raw: unknown, engine: AnalysisEngine, model: string): Analysis {
 }
 
 export async function analyse(prompt: string): Promise<Analysis> {
-  const engine = ANALYSIS_ENGINE
-  const text =
-    engine === 'anthropic'
-      ? await viaAnthropic(prompt)
-      : engine === 'ollama'
-        ? await viaOllama(prompt)
-        : await viaClaudeCode(prompt)
+  const messages = [{ role: 'user' as const, content: prompt }]
+  let lastProblem = 'unknown'
 
-  return coerce(extractJson(text), engine, engine === 'ollama' ? OLLAMA_MODEL : ANALYSIS_MODEL)
+  // One retry. The prompt is expensive to produce and the session cannot be
+  // redone, so a single bad sampling should not cost the whole write-up.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const raw = extractJson(await complete({ messages, json: true }))
+      if (isUsable(raw)) return coerce(raw, ANALYSIS_ENGINE, engineModel())
+      lastProblem = 'the model returned JSON without a verdict or a scorecard'
+    } catch (err) {
+      lastProblem = err instanceof Error ? err.message : String(err)
+    }
+    if (attempt === 1) console.warn(`[analyse] attempt 1 unusable (${lastProblem}); retrying`)
+  }
+
+  throw new Error(`The debrief could not be parsed after two attempts: ${lastProblem}`)
 }
