@@ -1,24 +1,20 @@
 import { existsSync, statSync } from 'node:fs'
 import { computeMetrics, mmss, renderNarrative } from './metrics.js'
-import { buildPrompt } from './prompt.js'
-import { analyse } from './analyze.js'
+import { runDebrief } from './debrief.js'
 import { detectSpeechIntervals, toWav, transcribe } from './stt.js'
-import { runTests, LANGUAGES, type Language } from './runner.js'
+import { type Language } from './runner.js'
 import {
   files,
   patchMeta,
-  readCode,
   readEvents,
   readProblem,
-  sessionDir,
   writeMetrics,
   writeNarrative,
-  writeAnalysis,
   writeSpeech,
   writeVoiced,
 } from './store.js'
 import type { SpeechSegment } from './types.js'
-import { log, publish, stage } from './bus.js'
+import { log, stage } from './bus.js'
 
 /**
  * Runs after the candidate hits Finish. Each stage writes its own artefact, so
@@ -28,9 +24,6 @@ import { log, publish, stage } from './bus.js'
 export async function processSession(id: string, durationMs: number, language: Language) {
   const problem = await readProblem(id)
   if (!problem) throw new Error(`Session ${id} has no problem on disk`)
-
-  const dir = sessionDir(id)
-  const code = await readCode(id, LANGUAGES[language].ext)
 
   // Every step reports start and finish over the socket. `patchMeta` still runs
   // so a client that reloads (or cannot hold a socket) can recover the state
@@ -91,68 +84,11 @@ export async function processSession(id: string, durationMs: number, language: L
     `${Math.round(metrics.talkRatio * 100)}% talking · ${Math.round(metrics.silentCodingMs / 1000)}s silent coding`,
   )
 
-  // --- 3. Grade the code -------------------------------------------------
-  stage(id, 'tests', 'running', LANGUAGES[language].label)
-  await patchMeta(id, { status: 'analysing', stage: 'Running the test suite' })
-  let testSummary = 'No code was submitted.'
-  if (code.trim()) {
-    const run = await runTests(code, problem, language, dir)
-    if (run.error) {
-      testSummary = `Runner error (${run.error}): ${run.message ?? ''}`
-      stage(id, 'tests', 'failed', `${run.error}: ${(run.message ?? '').slice(0, 140)}`)
-      log(id, 'warn', `The submission did not run (${run.error}). The debrief will say so.`)
-    } else {
-      const lines = run.results.map((r) => {
-        const tag = r.passed ? 'PASS' : 'FAIL'
-        const label = r.hidden ? 'hidden' : 'sample'
-        const why = r.error
-          ? ` — ${r.error}`
-          : r.passed
-            ? ''
-            : ` — got ${JSON.stringify(r.got)}, expected ${JSON.stringify(r.expected)}`
-        const note = r.note ? ` [${r.note}]` : ''
-        return `  ${tag} (${label}) args=${JSON.stringify(r.args)}${why}${note}`
-      })
-      testSummary = `${run.passed}/${run.total} passing\n${lines.join('\n')}`
-      stage(id, 'tests', 'done', `${run.passed}/${run.total} passing`)
-    }
-  } else {
-    stage(id, 'tests', 'done', 'nothing was submitted')
-  }
-
-  // --- 4. Interviewer write-up -------------------------------------------
-  stage(id, 'debrief', 'running', 'this is the slow part')
-  await patchMeta(id, { status: 'analysing', stage: 'Interviewer is writing the debrief' })
-  const prompt = buildPrompt(
-    problem,
-    metrics,
-    narrative || '(no speech and no edits were recorded)',
-    code || '(nothing submitted)',
-    language,
-    testSummary,
-  )
-
-  try {
-    const analysis = await analyse(prompt)
-    await writeAnalysis(id, analysis)
-    stage(id, 'debrief', 'done', `${analysis.verdict} · ${took()}`)
-    await patchMeta(id, { status: 'ready', stage: undefined, durationMs, error: undefined })
-    publish({ type: 'session', sessionId: id, status: 'ready', at: new Date().toISOString() })
-  } catch (err) {
-    // Transcript and metrics survive; only the write-up is missing.
-    const message = err instanceof Error ? err.message : String(err)
-    stage(id, 'debrief', 'failed', message.slice(0, 200))
-    log(id, 'error', message)
-    await patchMeta(id, { status: 'failed', stage: undefined, durationMs, error: message })
-    publish({
-      type: 'session',
-      sessionId: id,
-      status: 'failed',
-      error: message,
-      at: new Date().toISOString(),
-    })
-    throw err
-  }
+  // --- 3. Tests and the interviewer write-up ------------------------------
+  // Lives in its own module because it reads its inputs back off disk, which is
+  // what lets /reanalyse re-run just this half after a model failure.
+  await runDebrief(id, language, durationMs)
+  log(id, 'info', `Session written up in ${took()}.`)
 
   return { metrics, durationMs: mmss(durationMs) }
 }
