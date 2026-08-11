@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { api, mmss, VERDICT_STYLE, type SessionDetail } from '@/lib/api'
-import { Panel, PanelTitle, Stat, Chip } from '@/components/ui'
+import { Button, Panel, PanelTitle, Stat, Chip } from '@/components/ui'
 import { Timeline } from '@/components/Timeline'
+import { Chat } from '@/components/Chat'
+import { Processing } from '@/components/Processing'
 
 const SEVERITY: Record<string, { color: string; label: string }> = {
   critical: { color: 'var(--color-danger)', label: 'critical' },
@@ -29,6 +31,9 @@ export default function Report() {
   const [data, setData] = useState<SessionDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeMs, setActiveMs] = useState<number | null>(null)
+  // Lives here rather than in <Chat> so a finding can seed the next question.
+  const [draft, setDraft] = useState('')
+  const [retrying, setRetrying] = useState(false)
 
   useEffect(() => {
     api
@@ -47,7 +52,39 @@ export default function Report() {
   if (error) return <Centered>{error}</Centered>
   if (!data) return <Centered>Loading…</Centered>
 
-  const { meta, metrics, analysis, speech, voiced, events, finalCode, problem } = data
+  // Re-running the write-up goes through the same stages and the same socket as
+  // the original, so it gets the same screen rather than a second progress UI.
+  if (retrying)
+    return (
+      <Processing
+        id={id}
+        onReady={() => {
+          setRetrying(false)
+          api
+            .session(id)
+            .then(setData)
+            .catch((e) => setError(String(e)))
+        }}
+      />
+    )
+
+  const { meta, metrics, analysis, speech, voiced, events, finalCode, problem, chat } = data
+
+  /** Puts a finding in the chat box, phrased the way you would actually ask. */
+  const discuss = (title: string, atMs: number | null) => {
+    setDraft(
+      `About "${title}"${atMs === null ? '' : ` at ${mmss(atMs)}`} — what should I have done instead?`,
+    )
+    document.getElementById('debrief-chat')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const retryDebrief = () => {
+    setRetrying(true)
+    api.reanalyse(id).catch((e) => {
+      setError(String(e))
+      setRetrying(false)
+    })
+  }
   const duration = metrics?.durationMs ?? meta.durationMs ?? 0
   const verdict = analysis ? VERDICT_STYLE[analysis.verdict] : null
 
@@ -100,9 +137,14 @@ export default function Report() {
       )}
 
       {meta.status === 'failed' && (
-        <div className="mb-8 rounded-lg border border-warn/30 bg-warn/10 px-4 py-3 text-[13px] text-warn">
-          The interviewer write-up failed for this session, but the recording, transcript and
-          measurements below were saved.
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn/30 bg-warn/10 px-4 py-3 text-[13px] text-warn">
+          <span>
+            The interviewer write-up failed for this session, but the recording, transcript and
+            measurements below were saved.
+          </span>
+          {/* Everything the write-up needs is on disk, so this costs a model
+              call rather than another 40 minutes of your life. */}
+          <Button onClick={retryDebrief}>Write it up again</Button>
         </div>
       )}
 
@@ -262,6 +304,12 @@ export default function Report() {
                         {f.detail}
                       </p>
                     </button>
+                    <button
+                      onClick={() => discuss(f.title, f.atMs)}
+                      className="ml-[14px] mt-1 text-[11px] text-faint transition-colors hover:text-accent"
+                    >
+                      Ask about this →
+                    </button>
                   </li>
                 )
               })}
@@ -292,6 +340,18 @@ export default function Report() {
             </div>
           )}
         </Panel>
+      )}
+
+      {metrics && (
+        <div id="debrief-chat" className="scroll-mt-6">
+          <Chat
+            sessionId={id}
+            initial={chat ?? []}
+            draft={draft}
+            onDraft={setDraft}
+            model={analysis?.model ?? null}
+          />
+        </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">

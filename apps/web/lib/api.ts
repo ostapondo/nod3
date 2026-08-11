@@ -98,6 +98,12 @@ export interface Analysis {
   generatedAt: string
 }
 
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+  at: string
+}
+
 export interface SessionDetail {
   meta: SessionRow
   problem: ProblemDetail & {
@@ -112,6 +118,7 @@ export interface SessionDetail {
   voiced: Array<[number, number]>
   metrics: Metrics | null
   analysis: Analysis | null
+  chat: ChatTurn[]
   finalCode: string
 }
 
@@ -199,6 +206,63 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ durationMs, code, language }),
     }).then(json<{ ok: boolean }>),
+
+  /** Re-runs the tests and the write-up against what is already on disk. */
+  reanalyse: (id: string) =>
+    fetch(`/api/sessions/${id}/reanalyse`, { method: 'POST' }).then(json<{ ok: boolean }>),
+
+  /**
+   * Asks the interviewer a follow-up. Resolves with the whole answer, but calls
+   * `onDelta` as it arrives so the UI can render it while it is still being
+   * written — a debrief answer takes long enough that waiting reads as a hang.
+   */
+  chat: async (
+    id: string,
+    message: string,
+    onDelta: (text: string) => void,
+    signal?: AbortSignal,
+  ): Promise<string> => {
+    const res = await fetch(`/api/sessions/${id}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message }),
+      ...(signal ? { signal } : {}),
+    })
+    if (!res.ok || !res.body) {
+      throw new Error(`${res.status}: ${(await res.text()).slice(0, 300)}`)
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let answer = ''
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      // SSE frames are separated by a blank line; anything after the last one
+      // is a partial frame that belongs to the next read.
+      const frames = buffer.split('\n\n')
+      buffer = frames.pop() ?? ''
+      for (const frame of frames) {
+        const line = frame.split('\n').find((l) => l.startsWith('data:'))
+        if (!line) continue
+        const event = JSON.parse(line.slice(5).trim()) as {
+          delta?: string
+          done?: boolean
+          error?: string
+        }
+        if (event.error) throw new Error(event.error)
+        if (event.delta) {
+          answer += event.delta
+          onDelta(event.delta)
+        }
+      }
+    }
+    return answer
+  },
 }
 
 export function mmss(ms: number): string {
