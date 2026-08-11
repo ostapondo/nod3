@@ -65,6 +65,29 @@ These come from the recording, not from a model's impression of it:
 
 The model reads these as facts and argues from them. It does not invent them.
 
+## Talking it through afterwards
+
+A verdict tells you how it went. It does not answer the question you actually have
+afterwards, which is usually "so what should I have done instead". The report ends in a
+conversation with the same interviewer, still holding the same record — your transcript,
+your keystrokes, your code, and the answer key it was never allowed to show you during the
+round.
+
+```
+YOU     Why is my approach worse than the optimal one?
+        At 02:40 you committed to a hash map before checking whether the input was
+        sorted — the statement says it is. That is the whole difference between
+        O(n) space and O(1): two pointers walking inward do the same job...
+```
+
+The round is over, so nothing is withheld. Ask for the optimal solution outright and you
+get working code in your language. Ask it to drill you and it escalates to the follow-up a
+real interviewer would have reached for. Every finding in the report has an
+**Ask about this** link that starts the conversation there.
+
+The thread is saved to `data/sessions/<id>/chat.jsonl` and is still there when you come
+back to the report.
+
 ## Languages
 
 The six Google lets you interview in:
@@ -147,8 +170,9 @@ Speech recognition is fully local — whisper.cpp on your CPU/GPU, no network ca
 
 The one thing that leaves your machine is the debrief prompt, and only when
 `ANALYSIS_ENGINE` is `claude-code` or `anthropic`. That prompt contains the problem, your
-transcript, your code and the measurements — but no audio. Set `ANALYSIS_ENGINE=ollama`
-to keep even that local.
+transcript, your code and the measurements — but no audio. Every question you ask in the
+debrief conversation sends the same record again, along with the thread so far. Set
+`ANALYSIS_ENGINE=ollama` to keep all of it local.
 
 ## Configuration
 
@@ -206,6 +230,13 @@ events.jsonl (keystroke deltas, runs, pastes) ───────────�
                                                               ▼
                                                     interviewer debrief
 ```
+
+Everything upstream of the debrief writes its artefact to disk before the next step runs,
+and the debrief itself reads those artefacts back rather than taking them as arguments.
+That is what makes the write-up re-runnable: it is the only step that depends on a model
+and therefore the only one that fails for reasons that have nothing to do with you, so a
+failed report offers to run again instead of costing you the interview. The same artefacts
+are what the debrief conversation is grounded in.
 
 Speech timing is measured from the waveform rather than taken from whisper's segment
 boundaries. Those boundaries stretch across pauses — early on they reported a recording
