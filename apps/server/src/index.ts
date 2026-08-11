@@ -19,14 +19,17 @@ import { allProblems, getProblem, publicView, chooseNext } from './lib/problems.
 import { LANGUAGES, isLanguage, runTests, type Language } from './lib/runner.js'
 import { detectToolchains } from './lib/toolchain.js'
 import { readSettings, writeSettings } from './lib/settings.js'
-import { attachWebSocket, PIPELINE_STAGES } from './lib/bus.js'
+import { attachWebSocket, stage, PIPELINE_STAGES } from './lib/bus.js'
 import { processSession } from './lib/pipeline.js'
+import { runDebrief } from './lib/debrief.js'
+import { respond, ChatUnavailable } from './lib/chat.js'
 import {
   appendEvents,
   createSession,
   files,
   listSessions,
   readAnalysis,
+  readChat,
   readCode,
   readEvents,
   readMeta,
@@ -284,6 +287,75 @@ app.post(
   }),
 )
 
+app.post(
+  '/api/sessions/:id/reanalyse',
+  wrap(async (req, res) => {
+    const id = param(req, 'id')
+    const meta = await readMeta(id)
+    if (!meta) return res.status(404).json({ error: 'Unknown session' })
+    if (meta.status === 'transcribing' || meta.status === 'analysing')
+      return res.status(409).json({ error: 'This session is still being processed' })
+    // Transcription is what costs minutes; if it never produced measurements
+    // there is nothing on disk to write up and the session has to be redone.
+    if (!(await readMetrics(id)))
+      return res.status(409).json({ error: 'This session never got past transcription' })
+
+    const lang: Language = isLanguage(meta.language) ? (meta.language as Language) : 'python'
+
+    // The stage checklist is shared with a first run, and the transcription
+    // half genuinely is finished — say so rather than leaving four steps
+    // looking stuck for the length of the write-up.
+    for (const done of ['convert', 'detect', 'transcribe', 'align'] as const) {
+      stage(id, done, 'done', 'already on disk')
+    }
+
+    // Same shape as /finish: the write-up takes minutes and the UI watches the
+    // socket, so answering now is the only thing that will not time out.
+    res.json({ ok: true, id })
+    runDebrief(id, lang, meta.durationMs ?? 0).catch((err) =>
+      console.error(`[reanalyse ${id}]`, err instanceof Error ? err.message : err),
+    )
+  }),
+)
+
+/**
+ * The debrief conversation. Streamed as SSE rather than over the shared socket:
+ * the socket broadcasts pipeline progress to every listener, while an answer
+ * belongs to the one client that asked for it.
+ */
+app.post(
+  '/api/sessions/:id/chat',
+  wrap(async (req, res) => {
+    const id = param(req, 'id')
+    const { message } = req.body as { message?: unknown }
+    if (typeof message !== 'string') return res.status(400).json({ error: 'message must be text' })
+    if (!(await readMeta(id))) return res.status(404).json({ error: 'Unknown session' })
+
+    const abort = new AbortController()
+    req.on('close', () => abort.abort())
+
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      // Next's dev proxy and most reverse proxies buffer without this.
+      'x-accel-buffering': 'no',
+    })
+    res.flushHeaders()
+    const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`)
+
+    try {
+      await respond(id, message, { onDelta: (text) => send({ delta: text }), signal: abort.signal })
+      send({ done: true })
+    } catch (err) {
+      if (abort.signal.aborted) return res.end()
+      const detail = err instanceof Error ? err.message : String(err)
+      send({ error: err instanceof ChatUnavailable ? detail : `The interviewer failed: ${detail}` })
+    }
+    res.end()
+  }),
+)
+
 app.get(
   '/api/sessions/:id/status',
   wrap(async (req, res) => {
@@ -310,6 +382,7 @@ app.get(
       voiced: (await readVoiced(id)) ?? [],
       metrics: await readMetrics(id),
       analysis: await readAnalysis(id),
+      chat: await readChat(id),
       finalCode: await readCode(id, LANGUAGES[lang]?.ext ?? 'py'),
     })
   }),

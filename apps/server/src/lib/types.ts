@@ -148,6 +148,13 @@ export interface Analysis {
   generatedAt: string
 }
 
+/** One turn of the debrief conversation that happens after the report exists. */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+  at: string
+}
+
 export interface SessionBundle {
   meta: SessionMeta
   problem: Problem

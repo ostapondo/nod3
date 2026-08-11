@@ -2,7 +2,15 @@ import { mkdir, readFile, writeFile, readdir, appendFile } from 'node:fs/promise
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { SESSIONS_DIR } from '../config.js'
-import type { Analysis, CodeEvent, Metrics, Problem, SessionMeta, SpeechSegment } from './types.js'
+import type {
+  Analysis,
+  ChatTurn,
+  CodeEvent,
+  Metrics,
+  Problem,
+  SessionMeta,
+  SpeechSegment,
+} from './types.js'
 
 const SESSION_ID = /^[A-Za-z0-9_-]+$/
 
@@ -25,6 +33,7 @@ const f = {
   metrics: (id: string) => path.join(sessionDir(id), 'metrics.json'),
   analysis: (id: string) => path.join(sessionDir(id), 'analysis.json'),
   narrative: (id: string) => path.join(sessionDir(id), 'narrative.txt'),
+  chat: (id: string) => path.join(sessionDir(id), 'chat.jsonl'),
   audio: (id: string) => path.join(sessionDir(id), 'audio.webm'),
   wav: (id: string) => path.join(sessionDir(id), 'audio.wav'),
   code: (id: string, ext: string) => path.join(sessionDir(id), `solution.${ext}`),
@@ -58,6 +67,9 @@ export const writeVoiced = (id: string, v: Array<[number, number]>) => writeJson
 export const readMetrics = (id: string) => readJson<Metrics>(f.metrics(id))
 export const readAnalysis = (id: string) => readJson<Analysis>(f.analysis(id))
 
+export const readNarrative = (id: string) =>
+  existsSync(f.narrative(id)) ? readFile(f.narrative(id), 'utf8') : Promise.resolve(null)
+
 export const writeSpeech = (id: string, s: SpeechSegment[]) => writeJson(f.speech(id), s)
 export const writeMetrics = (id: string, m: Metrics) => writeJson(f.metrics(id), m)
 export const writeAnalysis = (id: string, a: Analysis) => writeJson(f.analysis(id), a)
@@ -87,6 +99,31 @@ export async function readEvents(id: string): Promise<CodeEvent[]> {
       out.push(JSON.parse(line) as CodeEvent)
     } catch {
       // A torn last line can happen if the process died mid-append. Skip it.
+    }
+  }
+  return out
+}
+
+/**
+ * The debrief conversation. Append-only like `events.jsonl` for the same
+ * reason: a stream that is only ever added to cannot be corrupted by two
+ * writers, and a torn last line costs one message rather than the thread.
+ */
+export async function appendChat(id: string, turns: ChatTurn[]): Promise<void> {
+  if (turns.length === 0) return
+  await appendFile(f.chat(id), turns.map((t) => JSON.stringify(t)).join('\n') + '\n', 'utf8')
+}
+
+export async function readChat(id: string): Promise<ChatTurn[]> {
+  const p = f.chat(id)
+  if (!existsSync(p)) return []
+  const out: ChatTurn[] = []
+  for (const line of (await readFile(p, 'utf8')).split('\n')) {
+    if (!line.trim()) continue
+    try {
+      out.push(JSON.parse(line) as ChatTurn)
+    } catch {
+      // Same tolerance as events: skip a half-written line, keep the rest.
     }
   }
   return out

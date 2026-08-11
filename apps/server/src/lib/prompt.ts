@@ -1,5 +1,5 @@
 import { mmss } from './metrics.js'
-import type { Metrics, Problem } from './types.js'
+import type { Analysis, Metrics, Problem } from './types.js'
 
 const pct = (x: number) => `${Math.round(x * 100)}%`
 const at = (ms: number | null) => (ms === null ? 'never' : mmss(ms))
@@ -126,3 +126,81 @@ Rules:
 }
 
 export const RUBRIC_DIMENSIONS: readonly string[] = RUBRIC.map(([k]) => k)
+
+/**
+ * The debrief conversation. Same record as the write-up, plus the write-up
+ * itself, minus the JSON schema — the point of this half is the part a written
+ * report cannot do: answer the follow-up question the candidate actually has.
+ *
+ * Returned as a system prompt rather than folded into the first message so it
+ * can sit behind a cache breakpoint; it is identical on every turn and it is
+ * the largest thing in the request.
+ */
+export function buildChatSystem(
+  problem: Problem,
+  metrics: Metrics,
+  narrative: string,
+  finalCode: string,
+  language: string,
+  analysis: Analysis | null,
+): string {
+  return `You are the interviewer who just ran this algorithms round, now sitting down with the candidate afterwards to talk it through. The written debrief is already delivered and they have read it. Blunt, specific, no flattery — but this is a conversation, not a second report.
+
+You are holding the full record of the session: everything they said, everything they typed, on one clock. Use it. When you make a claim about what happened, point at the timestamp.
+
+=== PROBLEM ===
+${problem.title} (${problem.difficulty}, pattern: ${problem.pattern})
+
+${problem.statement}
+
+Ambiguities a strong candidate should have raised:
+${problem.ambiguities.map((a) => `- ${a}`).join('\n')}
+
+Known pitfalls:
+${problem.pitfalls.map((p) => `- ${p}`).join('\n')}
+
+Optimal solution: ${problem.optimal.approach} — time ${problem.optimal.time}, space ${problem.optimal.space}
+
+Follow-ups a real interviewer escalates to once the base solution works:
+${problem.followUps.map((f) => `- ${f}`).join('\n')}
+
+=== MEASUREMENTS (computed from the recording, treat as fact) ===
+Session length:            ${mmss(metrics.durationMs)}
+First word / first key:    ${at(metrics.timeToFirstWordMs)} / ${at(metrics.timeToFirstKeystrokeMs)}
+Planning window:           ${metrics.planningWindowMs === null ? 'n/a' : `${Math.round(metrics.planningWindowMs / 1000)}s`}
+Share of session speaking: ${pct(metrics.talkRatio)} at ${Math.round(metrics.wordsPerMinute)} wpm
+Longest silence:           ${Math.round(metrics.longestSilenceMs / 1000)}s at ${at(metrics.longestSilenceAtMs)}
+Silent coding:             ${Math.round(metrics.silentCodingMs / 1000)}s across ${metrics.silentCodingSpans.length} stretch(es)
+Test runs:                 ${metrics.runCount}, first at ${at(metrics.firstRunAtMs)}
+Edit churn:                +${metrics.totalAdded} −${metrics.totalRemoved} chars (ratio ${metrics.churnRatio.toFixed(2)})
+
+=== SESSION TRANSCRIPT (speech and code edits on one clock) ===
+${narrative}
+
+=== THEIR SUBMISSION (${language}) ===
+\`\`\`${language}
+${finalCode}
+\`\`\`
+
+=== THE DEBRIEF YOU ALREADY WROTE ===
+${
+  analysis
+    ? `Verdict: ${analysis.verdict} — ${analysis.headline}
+
+Scorecard:
+${analysis.rubric.map((r) => `- ${r.dimension}: ${r.score}/${r.max} — ${r.evidence}`).join('\n')}
+
+Findings:
+${analysis.findings.map((f) => `- [${f.atMs === null ? 'overall' : mmss(f.atMs)}] (${f.severity}) ${f.title}: ${f.detail}`).join('\n')}`
+    : '(the write-up failed for this session, so you are working from the record alone)'
+}
+
+=== HOW TO TALK ===
+- Answer the question they asked. Do not restate the debrief they have already read.
+- Keep it short. A few sentences, or a code block and a few sentences. This is a conversation.
+- When they ask for the optimal solution, give it in ${language} as working code, and say in one or two lines where their approach diverged from it. They have finished the round — withholding the answer now helps nobody.
+- When they ask you to drill them, ask one follow-up question and stop. Wait for the answer before judging it.
+- Ground your claims in the record. "At 07:12 you said X while the editor already had Y" beats any general advice.
+- If they push back and they are right, say so plainly and move on.
+- Their spoken words come from a local speech-to-text pass, so treat garbled words as transcription noise rather than confusion on their part.`
+}
